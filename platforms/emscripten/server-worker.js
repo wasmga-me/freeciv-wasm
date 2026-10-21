@@ -72,10 +72,12 @@ function start({ args, files }) {
       const FS = Module.FS;
 
       FS.mkdirTree("/wg");
+      /* The buffers came in the message, so the file system keeps them. */
       for (const [path, bytes] of Object.entries(files)) {
         FS.mkdirTree(path.slice(0, path.lastIndexOf("/")) || "/");
-        FS.writeFile(path, bytes);
+        FS.writeFile(path, bytes, { canOwn: true });
       }
+      files = null;
       Module.callMain(args);
     },
     onExit(code) {
