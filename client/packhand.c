@@ -83,6 +83,7 @@
 #include "audio.h"
 #include "client_main.h"
 #include "climap.h"
+#include "chatline_common.h"   /* send_chat() */
 #include "climisc.h"
 #include "clitreaty.h"
 #include "connectdlg_common.h"
@@ -2990,6 +2991,16 @@ void handle_conn_info(const struct packet_conn_info *pinfo)
   if (preparing_client_state) {
     set_client_state(C_S_PREPARING);
   }
+
+#ifdef __EMSCRIPTEN__
+  /* The page started us with its Resume save (--file): once the server
+   * gives us our player back, carry on playing. */
+  if (wg_resume && pinfo->used && pinfo->id == client.conn.id
+      && NULL != client.conn.playing && C_S_PREPARING == client_state()) {
+    wg_resume = FALSE;
+    send_chat("/start");
+  }
+#endif /* __EMSCRIPTEN__ */
 }
 
 /************************************************************************//**

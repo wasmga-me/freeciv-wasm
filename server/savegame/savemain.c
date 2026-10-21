@@ -37,6 +37,7 @@
 #include "savegame3.h"
 
 #include "savemain.h"
+#include "srv_main.h"
 
 static fc_thread *save_thread = NULL;
 
@@ -140,6 +141,14 @@ static void save_thread_data_free(struct save_thread_data *stdata)
 EM_JS(void, wg_saved, (const char *path), {
   Module['wgSaved']?.(UTF8ToString(path));
 });
+
+/* The game in progress, for the page's Resume; none before it starts */
+EMSCRIPTEN_KEEPALIVE void wg_snapshot(void)
+{
+  if (S_S_RUNNING == server_state()) {
+    save_game("/wg/snapshot", "snapshot", FALSE);
+  }
+}
 #endif /* __EMSCRIPTEN__ */
 
 static void save_thread_run(void *arg)

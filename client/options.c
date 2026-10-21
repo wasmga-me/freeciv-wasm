@@ -20,6 +20,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 /* utility */
 #include "capability.h"
 #include "deprecations.h"
@@ -6104,6 +6108,24 @@ static void option_save_output_window_callback(enum log_level lvl,
   output_window_vprintf(ftc_client, msg, args);
   va_end(args);
 }
+
+#ifdef __EMSCRIPTEN__
+/************************************************************************//**
+  Says nothing about saving.
+****************************************************************************/
+static void wg_quiet_log(enum log_level lvl, const char *msg, ...)
+{
+}
+
+/************************************************************************//**
+  The page never closes the client, so it asks it to write its options
+  now and then.
+****************************************************************************/
+EMSCRIPTEN_KEEPALIVE void wg_save_options(void)
+{
+  options_save(wg_quiet_log);
+}
+#endif /* __EMSCRIPTEN__ */
 
 /************************************************************************//**
   Save the options as soon as they have been synced with the server.

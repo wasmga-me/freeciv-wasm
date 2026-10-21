@@ -145,6 +145,9 @@ char metaserver[512] = "\0";
 int  server_port = -1;
 bool auto_connect = FALSE; /* TRUE = skip "Connect to Freeciv Server" dialog */
 bool auto_spawn = FALSE; /* TRUE = skip main menu, start local server */
+#ifdef __EMSCRIPTEN__
+bool wg_resume = FALSE; /* TRUE = start the saved game given with --file */
+#endif
 enum announce_type announce;
 
 struct civclient client;
@@ -524,6 +527,9 @@ int client_main(int argc, char *argv[], bool postpone_tileset)
     } else if ((option = get_option_malloc("--file", argv, &i, argc, TRUE))) {
       savefile = option;
       auto_spawn = TRUE;
+#ifdef __EMSCRIPTEN__
+      wg_resume = TRUE;
+#endif
     } else if ((option = get_option_malloc("--name", argv, &i, argc, FALSE))) {
       sz_strlcpy(user_name, option);
       free(option);

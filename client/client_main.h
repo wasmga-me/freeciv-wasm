@@ -80,6 +80,9 @@ extern char metaserver[512];
 extern int  server_port;
 extern bool auto_connect;
 extern bool auto_spawn;
+#ifdef __EMSCRIPTEN__
+extern bool wg_resume;
+#endif
 extern bool waiting_for_end_turn;
 
 #ifdef FREECIV_DEBUG

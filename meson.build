@@ -691,8 +691,13 @@ if host_system == 'emscripten'
      '-sEXPORTED_RUNTIME_METHODS=FS,callMain',
      '-sFORCE_FILESYSTEM'
     ]
-  ems_client_largs = ems_largs + [ '-sENVIRONMENT=web' ]
-  ems_server_largs = ems_largs + [ '-sENVIRONMENT=worker', '-sEXIT_RUNTIME' ]
+  # Sending and reading packets never sleeps, so Asyncify leaves that
+  # (large, generated) code as it is
+  ems_client_largs = ems_largs + [ '-sENVIRONMENT=web',
+    '-sASYNCIFY_REMOVE=["send_packet_*","receive_packet_*","dsend_packet_*","dio_*","packets_*"]' ]
+  # The server sleeps only in select(), which it calls directly
+  ems_server_largs = ems_largs + [ '-sENVIRONMENT=worker', '-sEXIT_RUNTIME',
+                                   '-sASYNCIFY_IGNORE_INDIRECT' ]
 else
   thread_dep = dependency('threads')
   priv_conf_data.set('HAVE_FCDB', 1)

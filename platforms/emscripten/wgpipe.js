@@ -199,13 +199,22 @@ addToLibrary({
     };
   }),
 
-  // Sleeps until the browser draws the next frame
+  // Sleeps until the browser draws the next frame, and while the page
+  // holds the game (Module.wgHeld)
   wg_next_frame__async: true,
   wg_next_frame: () => Asyncify.handleSleep((wakeUp) => {
+    var tick = () => {
+      if (Module['wgHeld']) {
+        setTimeout(tick, 100);
+      } else {
+        wakeUp();
+      }
+    };
+
     if (typeof requestAnimationFrame == 'function' && document.visibilityState != 'hidden') {
-      requestAnimationFrame(() => wakeUp());
+      requestAnimationFrame(tick);
     } else {
-      setTimeout(wakeUp, 50);
+      setTimeout(tick, 50);
     }
   }),
 });
