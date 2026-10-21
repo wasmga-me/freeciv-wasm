@@ -1,0 +1,754 @@
+========================
+Welcome to Freeciv 3.2.6
+========================
+
+The changes in the 3.2.x series are summarised below.
+For changes prior to 3.2, see NEWS. For more detailed changes,
+see the ChangeLog file.
+
+
+CHANGES FROM 3.2.5 to 3.2.6
+---------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.6>, 2026-09-03)
+
+3.2.6 is a bugfix release in the freeciv-3.2 series fixing
+two security vulnerabilities in savegame/scenario file handling,
+and a number of other bugs.
+
+Server / General
+    * Fixed security vulnerabilities in savegame/scenario file handling
+      RM#2161 RM#2162
+
+Changes affecting other rulesets / modders
+
+    * Corrected RandomMovement units' attack legality check RM#2106
+    * Fixed path finding issues when value of Veteran_Build effect
+      has negative value RM#2100
+
+Changes affecting server operators
+
+    * Improved logging about player authentication RM#2068
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#2069 RM#2050 RM#2056 RM#2084 RM#2096 RM#2086 RM#2101 RM#2102
+      RM#1742 RM#2113
+
+AI
+
+    * Fixed failed assertions of unit veteran level being over
+      the maximum it can be RM#2081
+    * Do not search for no longer existing threaded AI type RM#2108
+
+Clients
+
+    * Fixed infinite audio loop in the client exit with the SDL3 audio
+      RM#1963
+    * Fixed issue with displayed "turns to grow" for the city to
+      be wrong after city shrank RM#2040
+    * Made tech tree not to show buildings or governments which
+      tech actually makes unavailable RM#2085
+
+    * gtk4
+         + Music no longer pauses when Turn Done button is pressed
+           RM#2107
+
+Help / Documentation
+
+    * Miscellaneous improvements to in-game text and user documentation.
+      RM#2126
+    * Miscellaneous changes to developer/install/ruleset docs RM#2175
+
+Translations
+
+    * Corrected encoding of the Norwegian and
+      Simplified Chinese translations
+    * Updated translations:
+         + Complete translations: Polish, Russian
+         + Incomplete translations:
+           Finnish (100% core, 90% nations, 100% ruledit)
+           Swedish (99% core, 16% nations, 1% ruledit)
+
+Build/portability
+
+    * Fixed ruledit build with g++ and disabled native language support
+      RM#2074 RM#2075
+    * Flatpak updates
+         + KDE Platform updated to 6.11 RM#2078
+    * Added build_tolua.sh script for building just tolua executable
+      from freeciv tree RM#2099
+    * Fixed SDL3 audio build without SDL2 files in the system RM#2121
+    * Made included tolua to generate deterministic code,
+      to make freeciv build with included tolua reproducible RM#2122
+    * Crosser based build improvements
+         + Fixed an issue that configure step detected build system
+           headers and/or libs instead of the target system ones RM#2139
+         + Made meson-build_all_installers.sh not to try sdl2-client
+           build if crosser does not provide sdl2 libraries RM#2143
+    * Silenced sfinae-incomplete compiler warnings with g++16
+      when building against Qt < 6.11 RM#2149
+    * Fixed meson-1.12 warnings about installation of man pages RM#2166
+
+
+CHANGES FROM 3.2.4 to 3.2.5
+---------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.5>, 2026-07-07)
+
+3.2.5 is a generic bugfix release in the freeciv-3.2 series.
+
+Server / General
+
+    * Fix No First City vs Currently has cities inconsistency
+      on savegame loading RM#2018
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#1982 RM#1739 RM#2024 RM#2048
+
+AI
+
+    * Enable rampage with more attack types
+         - Bombard RM#1940
+         - Capture Unit RM#1970
+         - Nuke Units RM#1991
+         - Nuke Tile RM#2016 RM#2026
+         - Nuke City RM#2032 RM#2041
+    * Fixed floating point exception at air unit handling RM#2012
+
+Clients
+
+    * Display NeverProtects unit help in correct place RM#1976
+
+    * gtk4
+         - Fixed city trading RM#2034
+
+    * qt
+         - Fixed "Save Options on Exit" toggle RM#1969
+
+Help / Documentation
+
+    * Miscellaneous changes to developer/install/ruleset docs RM#1864
+
+Translations
+
+    * Corrected encoding of the Hungarian translation
+    * Updated translations:
+         - Complete translations: Polish, Russian
+         - Incomplete translations:
+           Finnish (100% core, 90% nations, 100% ruledit)
+           Galician (99% core, 100% nations, 100% ruledit)
+           Korean (33% core, 100% nations, 99% ruledit)
+           Swedish (41% core, 16% nations, 1% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams
+      RM#1957 RM#1988 RM#2014 RM#2044
+    * Work towards working emscripten client
+      RM#1880 RM#1881 RM#1986 RM#1992 RM#1879 RM#1896 RM#2021
+    * Fixed compilation against glibc-2.43 RM#1964
+    * Flatpak updates
+         - Gnome Platform updated to 50 RM#1968
+    * AppImage updates
+         - Build gtk4 modpack installer RM#1870
+    * Fixed Qt-client compilation with g++16 and Qt-6.11 RM#2062
+    * Fixed gtk4-client compilation with gtk-4.23 RM#2064
+
+
+CHANGES FROM 3.2.3 to 3.2.4
+---------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.4>, 2026-03-21)
+
+3.2.4 fixes a vulnerability allowing remote crashing of the server.
+
+Server / General
+
+    * Fixed a vulnerability allowing remote crashing of the server
+      RM#1955
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#1944 RM#1951
+
+Clients
+
+    * sdl
+         + Fixed crash on selecting nation style or nation RM#1961
+
+Translations
+
+    * Updated translations:
+         + Incomplete translations:
+           Finnish (99% core, 90% nations, 100% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams RM#1924
+    * emscripten updated to version 5.0.1 RM#1948
+
+
+CHANGES FROM 3.2.2 to 3.2.3
+---------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.3>, 2026-02-25)
+
+3.2.3 is a generic bugfix release in the freeciv-3.2 series.
+
+Server / General
+
+    * Restore server to sane state after savegame loading failures
+      RM#1826 RM#1897
+    * Assert unit goto tile validity rather than outright crashing
+      RM#1695
+
+Changes affecting other rulesets / modders
+
+    * Fixed rounding error with certain values
+      of ocean_reclaim_requirement RM#1278
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#1754 RM#1756 RM#1813 RM#1818 RM#1843 RM#1825 RM#1871 RM#1873
+      RM#1892
+
+AI
+
+    * Made AI able to collect ransom from barbarian leaders RM#1803
+    * Stop dead players from affecting AI diplomacy towards other players
+      RM#1831
+    * Stop AI from trying to cancel treaties with dead players RM#1820
+    * Fixed a failing war countdown assert RM#1834
+    * Fixed handling of fake generalized attack actions
+      RM#1847 RM#1888 RM#1910
+    * Handle teleporting enemy units the same as paradropping ones RM#199
+    * Made AI quicker to declare war on the player launching
+      the spaceship RM#1904
+
+Clients
+
+    * Increased city report trade routes column width RM#1815
+    * Fixed crash when adjusting volume with dummy audio plugin RM#1890
+    * Fixed an assert failure with agents RM#1926
+
+    * gtk
+         + Make volume adjusting menu entries insensitive when there's
+           no audio plugin RM#1780 RM#1781
+         + Fixed bombardment animations RM#1851
+
+    * gtk4
+         + Worked around unit/building icon size issues with gtk-4.20
+           RM#1856
+         + Fixed crash on right-click on units on city dialog RM#1868
+         + Stopped supported/present units icons in city dialog
+           from shrinking RM#1875
+
+    * qt
+         + Added double-click handling to goto dialog RM#1808
+         + Prevented dragging unit info widget outside map view RM#1832
+         + Fixed clean activity icon RM#1850
+         + Make volume adjusting menu entries insensitive when there's
+           no audio plugin RM#1889
+
+    * sdl
+         + Fixed connect dialog fields to take effect RM#1883
+
+    * sdl3
+         + Made text edit widgets functional RM#1885
+         + Fixed error on drawing empty chatline RM#1884
+
+Tools
+Ruledit/Ruleup
+
+    * Fixed saving helptext for counters RM#1844
+    * Fixed saving roads' first_reqs and integrates RM#1925
+
+
+Help / Documentation
+
+    * Doxygen documentation updates RM#1828
+    * Miscellaneous improvements to in-game text and user documentation.
+      RM#1839 RM#1906
+    * Miscellaneous changes to developer/install/ruleset docs
+      RM#1824 RM#1801 RM#1782 RM#1920
+
+Translations
+
+    * Updated translations:
+         + Complete translations: Polish, Russian
+         + Incomplete translations:
+           Finnish (100% core, 90% nations, 100% ruledit)
+           Galician (99% core, 100% nations, 100% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams
+      RM#1806 RM#1855 RM#1857 RM#1886
+    * Work towards working emscripten client
+      RM#1800 RM#1877 RM#1878 RM#1902 RM#1882
+    * Meson build improvements
+         + Sanity check client/audio driver combinations RM#1822
+    * Metainfo improvements
+         + Added vcs-browser and contribute URLs RM#1860
+         + Added screenshot captions RM#1869
+         + Updated bug tracker URL RM#1908
+    * Update crosser to version 2.11 RM#1922 RM#1935
+    * Windows installers for Qt-client now contain ruledit for real
+      RM#1923
+
+
+CHANGES FROM 3.2.1 to 3.2.2
+---------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.2>, 2026-01-01)
+
+3.2.2 is a generic bugfix release in the freeciv-3.2 series.
+
+Server / General
+
+    * Fixed backward compatibility in loading unit actions
+      from a savegame RM#1611
+    * Fixed crashes after continuing game from a savegame
+      RM#1741 RM#1768 RM#1769
+    * Added sanitycheck for goto consistency RM#1750
+    * Fixed an goto consistency issue RM#1766
+
+Changes affecting players (supplied rulesets)
+
+    * civ2civ3 / sandbox
+         + Refactored unit gold upkeep implementation for improved
+           help in the help system RM#1267
+
+Changes affecting other rulesets / modders
+
+    * Sanity check ruleset against unit hitpoints being zero RM#1676
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#1678 RM#1704 RM#1725 RM#1734 RM#1503 RM#1757 RM#1784 RM#1771
+
+AI
+
+    * Fixed an error after player is added mid-game RM#87
+
+Clients
+
+    * Fixed nations dialog crash for dead players in the list RM#1708
+    * Fixed nations dialog crash after contact with another player
+      is re-established RM#1793 RM#1811
+
+    * gtk
+         + Added Volume controls to Game menu RM#1718 RM#1717
+         + gtk3.22 only: Fixed Show Stack Size shortcut in MacOS RM#1483
+         + gtk4 only: Fixed some letters being unavailable in chat
+           RM#1435
+
+    * qt
+         + Fixed disappearing "About..." menu items in MacOS RM#1672
+         + Worked around Qt-6.9 theming issue RM#1697
+         + Message window is now cleared between games RM#1239
+         + Added Volume controls to Game menu RM#1630
+         + Fixed svg flag drawing with full citybar disabled RM#1666
+         + Fixed gotodlg crash after city destruction RM#1827
+
+    * sdl
+         + Fixed text placement on combo widgets RM#1727
+
+
+Help / Documentation
+
+    * Corrected Martian city name Apollinaris Patera RM#1777 RM#1775
+    * Miscellaneous improvements to in-game text and user documentation.
+      RM#1764 RM#1812 RM#1792
+    * Miscellaneous changes to developer/install/ruleset docs
+      RM#1715 RM#1698 RM#1722 RM#1151 RM#1785
+
+Translations
+
+    * Updated translations:
+         + Complete translations: Polish, Russian
+         + Incomplete translations:
+           Finnish (100% core, 90% nations, 100% ruledit)
+           Galician (99% core, 99% nations, 100% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams
+      RM#1748 RM#1795 RM#1753
+    * Meson based build improvements
+         + Improved finding of sdl libraries RM#1703 RM#1706
+         + Fixes to build system internal dependency definitions,
+           fixing intermittent and rare build failures RM#1788
+    * Flatpak updates
+         + Freedesktop Platform updated to 25.08 RM#1685
+         + Gnome Platform updated to 49 RM#1707
+         + Qt Platform updated to 6.10 RM#1728
+         + Added sdl3-client flatpak RM#1744
+    * emscripten updated to version 4.0.17 RM#1714
+    * Fixed an issue in sdl3-client build on Windows RM#1723
+    * Updated SDL3_mixer support to use stable SDL3_mixer API RM#1713
+    * Updates to AppImage building
+         + Updated linuxdeploy to version 1-alpha-20251107-1 RM#1802
+
+
+CHANGES FROM 3.2.0 to 3.2.1
+---------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.1>, 2025-10-09)
+
+3.2.1 is a generic bugfix release in the freeciv-3.2 series.
+
+Server / General
+
+    * Fixed units carrying goods RM#1579
+    * Fixed assert failures with illegal lua scripts RM#1550
+    * Refresh city capital status information after a savegame
+      has been loaded. Previously no city was considered capital
+      for a turn after savegame loading RM#1524
+    * Corrected what situations make it impossible to airlift a unit
+      RM#1564
+    * Fixed crash with illegal action lists in savegame RM#1646
+    * Fixed culture victory with very high values of culture RM#1673
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#600 RM#1484 RM#1582 RM#1571 RM#1586 RM#1592 RM#1371 RM#1635
+
+AI
+
+    * Fixed air unit goto RM#1657
+
+Clients
+
+    * User is informed about the goods a unit is carrying RM#1554
+    * Options from the open options dialog are automatically applied
+      before they are saved, so what user sees is what gets saved RM#1587
+    * Show tech upkeep correctly for very high values of it RM#1654
+    * Client now know correctly city anarchy and rapture status.
+      In many rulesets this fixes an issue that client did not show
+      rapture cancelling output penalties of early governments
+      RM#1639
+
+    * gtk
+         + gtk4 only: Fixed goto dialog Show All Cities toggle RM#1578
+         + Don't show "Bonus" for non-road extras in help RM#1637
+
+    * qt
+         + Fixed "collect Ransom" action RM#1629
+         + Fixed crash on savegame preview RM#1641
+         + Fixed nation and leader selection RM#1652
+         + Fixed mixup with thumbs up/down in diplomacy dialog RM#1668
+         + Added Help menu entry "Policies", removed duplicate entries
+           RM#1671
+
+    * sdl
+        + Fixed handling of very high city and unit ids RM#1529 RM#1528
+        + Fixed drawing of very wide or tall surfaces RM#1467
+
+Tools
+
+    * Modpack installer
+         + Command line version of the fcmp tells how to install
+           any of the listed modpacks RM#1486
+
+
+Help / Documentation
+
+    * Doxygen documentation updates RM#1461 RM#1481
+    * Miscellaneous improvements to in-game text and user documentation.
+      RM#1502 RM#1534 RM#1577 RM#1614 RM#1648
+    * Miscellaneous changes to developer/install/ruleset docs
+      RM#1585 RM#1622
+
+Translations
+
+    * Updated translations:
+         + Complete translations: Polish, Russian
+         + Incomplete translations:
+           Finnish (100% core, 90% nations, 100% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams
+      RM#1522 RM#1540 RM#1644 RM#1689 RM#1690 RM#1691 RM#1692
+    * Crosser based Windows installers improvements
+         + Made Qt-client svgflags features to work RM#1471 RM#1485
+         + Audio driver is now set explicitly RM#1513
+         + Version number of the meson-winbuild.sh helper script
+           bumped to 3.2 RM#1613
+         + Preparations for sdl3-client builds RM#1628 RM#1651
+    * Improvements to official msys2 Windows installers
+         + Modernized build system RM#1372
+         + Added explicit "make release" target RM#1511
+    * emscripten updated to version 4.0.13 RM#1538 RM#1624 RM#1656
+    * Meson build system improvements
+         + Use "warning_level" options instead of "-Wall" RM#1316
+         + Fixed sdl3-client configure checks on Windows RM#1599
+    * Applied official patches to included copy of Lua-5.4.8
+         + Patch 1 RM#1537
+         + Patch 3 RM#1664
+    * Server binary is no longer built to ruledit appimage RM#1594
+    * Fixed compiler warning about curl usage RM#1679
+
+
+CHANGES FROM 3.2.0-RC2 to 3.2.0
+-------------------------------
+3.2.0-RC2 has been released as final 3.2.0 without changes.
+
+
+CHANGES FROM 3.2.0-RC1 to 3.2.0-RC2
+-----------------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.0-RC2>, 2025-07-09)
+
+3.2.0-RC2 is the second release candidate of freeciv-3.2,
+fixing some issues identified with RC1. Most notably
+collecting barbarian leader ransom has been fixed.
+
+Server / General
+
+    * Fixed collecting Barbarian Leader ransom RM#1559
+    * Fixed "PACKET_SYNC_SERIAL from non-player connection" error
+      RM#1562
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#1539
+
+Help / Documentation
+
+    * Doxygen documentation updates RM#1234
+    * Miscellaneous changes to developer/install/ruleset docs RM#1563
+
+Translations
+
+    * Updated translations:
+         + Complete translations: Polish
+
+Build/portability
+
+    * Included copy of lua has been updated to 5.4.8 RM#1431
+
+
+CHANGES FROM 3.2.0-beta2 to 3.2.0-RC1
+-------------------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.0-RC1>, 2025-07-03)
+
+3.2.0-RC1 is the first Release Candidate of freeciv-3.2.
+Number of bugs have been fixed since beta2.
+
+Server / General
+
+    * Fixed an variable lookup problem when loading rulesets RM#114
+    * Supplied scenarios now correctly show 3.2 as their format version
+      (they have been saved with freeciv-3.2.0-beta2) RM#1381 RM#1385
+    * Fixed server crash when loading malformed savegame RM#1382
+    * Fixed an error that unowned tiles were sent to client as owned
+      by player number 255 when there was such a player in the game
+      RM#1474
+    * Moved from beta to stable mode RM#1448
+
+Changes affecting players (supplied rulesets)
+
+    * civ2civ3 & sandbox
+         + Number of Storms reduced RM#1456
+
+Changes affecting other rulesets / modders
+
+    * "quiet" requirement property is now respected in building
+      "obsolete_by" definitions RM#1238
+    * Improved sanity checks at specialists loading RM#1400
+    * Lua handling of achievement and disaster names fixed RM#1458
+
+General
+
+    * Various internal changes which should only affect developers.
+      RM#1280 RM#1265 RM#1312 RM#1359 RM#1365 RM#1360 RM#1434 RM#1498
+      RM#1468 RM#1495 RM#1499 RM#1443
+
+AI
+
+    * Tex AI fixes towards consulting its own copy of map where
+      it should RM#1409
+    * Better consider action enabler imposed restrictions on selecting
+      rampage targets RM#1242
+
+Clients
+
+    * Fixed corner road graphics for RoadAllCombined tile types RM#1276
+
+    * gtk
+         + Fixed saving and restoring city dialog size RM#1289
+         + Use "meta" key as menu accelerator on MacOS RM#1292 RM#1489
+         + Client now remembers size of the help dialog RM#1287
+         + Client now remembers size of the options dialog RM#1288
+         + gtk3.22 only Fixed edit mode fog of war toggle sync RM#1492
+
+
+Help / Documentation
+
+    * Doxygen documentation updates RM#1401 RM#1466
+    * Miscellaneous improvements to in-game text and user documentation.
+      RM#1322 RM#1335 RM#1394 RM#1354 RM#1430 RM#1277 RM#1386 RM#1472
+      RM#1476 RM#1496 RM#1397
+    * Miscellaneous changes to developer/install/ruleset docs
+      RM#1285 RM#509 RM#1306 RM#1307 RM#1340 RM#1343 RM#1344 RM#1347
+      RM#1364 RM#1366 RM#1446 RM#1390 RM#1441 RM#1447 RM#1477
+
+Translations
+
+    * Updated translations:
+         + Complete translations: Russian
+         + Incomplete translations:
+           Finnish (100% core, 90% nations, 100% ruledit)
+           Galician (99% core, 99% nations, 100% ruledit)
+           Polish (99% core, 100% nations, 100% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams
+      RM#1297 RM#1298 RM#1310 RM#1327 RM#1370 RM#1388 RM#1342 RM#1368
+      RM#1391 RM#1398
+    * Meson based build improvements
+         + Provide freeciv version information for meson system RM#1272
+         + Fixed Qt6 version detection RM#1296
+         + Svg flag features enabled by default in the build level
+           RM#1442
+         + Asserts are now properly disabled in release builds RM#1455
+         + Fixed an dependency issue very rarely causing build failures
+           RM#1479
+    * Fixed DeprecationWarning: pathlib.PurePath.is_reserved() RM#1227
+    * Windows Installers updates
+         + 'make qt-installer' now correctly builds Qt6-client installer
+           RM#1311
+         + gtk4-client is not built to "win64" target RM#1376
+    * Fixed sdl2-client build on systems without X11 present RM#1314
+    * Flatpak updates
+         + Updated kde Platform and Sdk to version 6.9 RM#1299
+    * Applied official patches to included copy of Lua
+         + Patch 5 RM#1319
+         + Patch 6 RM#1330
+         + Patch 7 RM#1341
+         + Patch 8 RM#1407
+    * Fixed SDL3_rotozoom errors from 'make src-check' RM#1291
+    * emscripten build improvements
+         + Updated emscripten to 4.0.9 RM#1357 RM#1463
+         + emsbuild.sh now accepts relative path to the environment
+           RM#1358
+    * Crosser updated to 2.10 RM#1393 RM#1424
+
+
+CHANGES FROM 3.2.0-beta1 to 3.2.0-beta2
+---------------------------------------
+
+   (from <https://www.freeciv.org/wiki/NEWS-3.2.0-beta2>, 2025-04-10)
+
+3.2.0-beta1 fixes a number of issues seen with beta1.
+
+Server / General
+
+    * Fixed unused entry warnings from loading pre-3.0 savegames
+      RM#1160 RM#1166 RM#1167 RM#1170
+    * Bug reporting URL corrected in meson based builds RM#1236
+    * /write command no longer includes deprecated /metamessage commands
+      in the generated script RM#1247
+    * Fixed worklist purging for units that cannot be updated RM#1257
+
+Changes affecting server operators
+
+    * Fixed mapimg2anim ffmpeg detection failure RM#1246
+
+General
+
+    * Various internal changes which should only affect developers.
+      osdn#46353 RM#1112 RM#1120 RM#1190 RM#1206 RM#1187 RM#1220 RM#1225
+      RM#1232 RM#1241 RM#1248 RM#1264
+
+AI
+
+    * Tex AI fixes towards consulting its own copy of map where it should
+      RM#1078 RM#1089 RM#1106 RM#1117 RM#1130 RM#1155 RM#1169 RM#1171
+      RM#1181 RM#1202 RM#1205 RM#1209 RM#1223 RM#1226 RM#1233 RM#1235
+
+Clients
+
+    * Corrected client knowledge about original city owner RM#1067
+
+    * gtk
+         + Fixed freeciv window focus handling RM#813
+
+    * qt
+         + Fixed crash on fatal tileset error display when client
+           is fully set up RM#1262
+
+    * sdl3
+         + Fixed sdl3-client theme to work without sdl2-client theme
+           RM#1251
+
+Tools
+Ruleset editor
+
+    * Prevent opening multiple requirement editors for the same Good
+      RM#1076
+    * Allowed enabler addtion and removal on regular ruledit builds
+      RM#1128
+    * Fixed enabler removal RM#1192
+
+Help / Documentation
+
+    * Added NEWS-3.2 document RM#1146
+    * Doxygen documentation updates RM#1090 RM#1119 RM#1185 RM#1254
+    * Miscellaneous improvements to in-game text and user documentation.
+      RM#1196 RM#1203 RM#1261
+    * Miscellaneous changes to developer/install/ruleset docs
+      RM#1245 RM#1231 RM#1256 RM#1268 RM#1274
+
+Translations
+
+    * Updated translations:
+         + Complete translations: Russian
+         + Incomplete translations:
+           Finnish (99% core, 90% nations, 100% ruledit)
+           Galician (99% core, 99% nations, 100% ruledit)
+           Polish (99% core, 99% nations, 99% ruledit)
+           Slovak (3% core, 0% nations, 1% ruledit)
+
+Build/portability
+
+    * Refreshed bootstrap files from their upstreams
+      RM#1172 RM#1173 RM#1175 RM#1179 RM#1198 RM#1201 RM#1222 RM#1244
+    * Meson based build improvements
+         + run.sh now sets also FREECIV_SAVE_PATH RM#1194
+         + Added C11 threads support RM#1197
+         + Correctly require zstd.h before enabling zstd compression
+           in build RM#1207
+    * Autotools based build improvements
+         + Added configure check if a variable argument can be
+           defined const RM#1178
+         + Fixed failures of configure checks for sdl2 subprojects
+           to find math library functions RM#1243
+    * Silenced deprecated declarations warnings from C++ builds RM#1180
+    * Metainfo improvements
+         + Updated sdl3-client screenshot RM#1081
+    * Fixed Qt5-mode compile with gcc-15 development version RM#1176
+    * emscripten build updates
+         + Added emssetup.sh script for easier setting up
+           build environment RM#1193
+         + emscripten updated to 4.0.5 RM#1253
+    * Generating gitrev no longer requires wc or tail commands RM#1199
+    * generate_doc.sh now creates required doc -directory RM#1228
+    * Appimage updates
+         + Linuxdeploy updated to version 1-alpha-20250213-2 RM#1249
+         + Added build of sdl3-client appimage RM#1250
+    * Flatpak updates
+         + Updated gnome Platform and Sdk to version 48 RM#1258
