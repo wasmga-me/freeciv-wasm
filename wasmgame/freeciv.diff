@@ -1,0 +1,978 @@
+diff --git a/client/client_main.c b/client/client_main.c
+index 7b3c259..c3abcc5 100644
+--- a/client/client_main.c
++++ b/client/client_main.c
+@@ -28,6 +28,10 @@
+ #include <stdlib.h>
+ #include <time.h>
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
++
+ /* utility */
+ #include "bitvector.h"
+ #include "capstr.h"
+@@ -145,6 +149,9 @@ char metaserver[512] = "\0";
+ int  server_port = -1;
+ bool auto_connect = FALSE; /* TRUE = skip "Connect to Freeciv Server" dialog */
+ bool auto_spawn = FALSE; /* TRUE = skip main menu, start local server */
++#ifdef __EMSCRIPTEN__
++bool wg_resume = FALSE; /* TRUE = start the saved game given with --file */
++#endif
+ enum announce_type announce;
+ 
+ struct civclient client;
+@@ -524,6 +531,9 @@ int client_main(int argc, char *argv[], bool postpone_tileset)
+     } else if ((option = get_option_malloc("--file", argv, &i, argc, TRUE))) {
+       savefile = option;
+       auto_spawn = TRUE;
++#ifdef __EMSCRIPTEN__
++      wg_resume = TRUE;
++#endif
+     } else if ((option = get_option_malloc("--name", argv, &i, argc, FALSE))) {
+       sz_strlcpy(user_name, option);
+       free(option);
+@@ -1029,6 +1039,16 @@ enum client_states client_state(void)
+   return civclient_state;
+ }
+ 
++#ifdef __EMSCRIPTEN__
++/**********************************************************************//**
++  Whether a game is being played, for the page's Resume.
++**************************************************************************/
++EMSCRIPTEN_KEEPALIVE int wg_playing(void)
++{
++  return C_S_RUNNING == civclient_state;
++}
++#endif /* __EMSCRIPTEN__ */
++
+ /**********************************************************************//**
+   Remove pconn from all connection lists in client, then free it.
+ **************************************************************************/
+diff --git a/client/client_main.h b/client/client_main.h
+index 871e677..d716ab6 100644
+--- a/client/client_main.h
++++ b/client/client_main.h
+@@ -80,6 +80,9 @@ extern char metaserver[512];
+ extern int  server_port;
+ extern bool auto_connect;
+ extern bool auto_spawn;
++#ifdef __EMSCRIPTEN__
++extern bool wg_resume;
++#endif
+ extern bool waiting_for_end_turn;
+ 
+ #ifdef FREECIV_DEBUG
+diff --git a/client/connectdlg_common.c b/client/connectdlg_common.c
+index 64d100e..50b5bb1 100644
+--- a/client/connectdlg_common.c
++++ b/client/connectdlg_common.c
+@@ -80,6 +80,27 @@
+ #define HAVE_USABLE_FORK
+ #endif
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/* The page runs the server in a Web Worker: these stand for fork() and
++ * exec(), kill() and waitpid(). */
++EM_JS(int, wg_start_server, (int argc, char **argv), {
++  var args = [];
++
++  for (var i = 1; i < argc; i++) {
++    args.push(UTF8ToString(HEAPU32[(argv >> 2) + i]));
++  }
++  return Module['wgStartServer']?.(args) ? 1 : -1;
++});
++EM_JS(void, wg_stop_server, (void), {
++  Module['wgStopServer']?.();
++});
++EM_JS(int, wg_server_exited, (void), {
++  return Module['wgServerExited']?.() ? 1 : 0;
++});
++#endif /* __EMSCRIPTEN__ */
++
+ #ifdef HAVE_USABLE_FORK
+ static pid_t server_pid = -1;
+ #elif FREECIV_MSWINDOWS
+@@ -198,7 +219,10 @@ void client_kill_server(bool force)
+       /* Either we already disconnected, or we didn't get control of the
+        * server. In either case, the only thing to do is a "hard" kill of
+        * the server. */
+-#ifdef HAVE_USABLE_FORK
++#ifdef __EMSCRIPTEN__
++      wg_stop_server();
++      server_pid = -1;
++#elif defined(HAVE_USABLE_FORK)
+       kill(server_pid, SIGTERM);
+       waitpid(server_pid, NULL, WUNTRACED);
+       server_pid = -1;
+@@ -367,7 +391,11 @@ bool client_start_server(void)
+       astr_free(&srv_cmdline_opts);
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    server_pid = wg_start_server(argc, argv);
++#else
+     server_pid = fork();
++#endif
+     server_quitting = FALSE;
+ 
+     if (server_pid == 0) {
+@@ -578,7 +606,11 @@ bool client_start_server(void)
+   while (connect_to_server(user_name, "localhost", internal_server_port,
+                            buf, sizeof(buf)) == -1) {
+     fc_usleep(WAIT_BETWEEN_TRIES);
+-#ifdef HAVE_USABLE_FORK
++#ifdef __EMSCRIPTEN__
++    if (server_pid < 0 || wg_server_exited()) {
++      break;
++    }
++#elif defined(HAVE_USABLE_FORK)
+ #ifndef FREECIV_MSWINDOWS
+     if (waitpid(server_pid, NULL, WNOHANG) != 0) {
+       break;
+diff --git a/client/gui-sdl2/gui_main.c b/client/gui-sdl2/gui_main.c
+index 6d3c405..feadafb 100644
+--- a/client/gui-sdl2/gui_main.c
++++ b/client/gui-sdl2/gui_main.c
+@@ -37,6 +37,8 @@
+ 
+ #ifdef __EMSCRIPTEN__
+ #include <emscripten.h>
++
++static void wg_resize(void);
+ #endif
+ 
+ /* SDL2 */
+@@ -640,7 +642,12 @@ widget_id gui_event_loop(void *data,
+       }
+ 
+       tv.tv_sec = 0;
++#ifdef __EMSCRIPTEN__
++      /* The loop waits for the next frame below */
++      tv.tv_usec = 0;
++#else
+       tv.tv_usec = 10000; /* 10ms*/
++#endif
+ 
+       result = fc_select(net_socket + 1, &civfdset, NULL, NULL, &tv);
+       if (result < 0) {
+@@ -657,7 +664,9 @@ widget_id gui_event_loop(void *data,
+         }
+       }
+     } else { /* If connection is not establish */
++#ifndef __EMSCRIPTEN__
+       SDL_Delay(10);
++#endif
+     }
+     /* ========================================= */
+ 
+@@ -869,7 +878,8 @@ widget_id gui_event_loop(void *data,
+     update_main_screen();
+ 
+ #ifdef __EMSCRIPTEN__
+-    emscripten_sleep(100);
++    wg_next_frame();
++    wg_resize();
+ #endif
+   }
+ 
+@@ -939,6 +949,40 @@ static void resize_window_callback(struct option *poption)
+   update_queue_add(real_resize_window_callback, NULL);
+ }
+ 
++#ifdef __EMSCRIPTEN__
++/**********************************************************************//**
++  The size the page asks for, if it asked since the last call.
++**************************************************************************/
++EM_JS(int, wg_requested_size, (int *w, int *h), {
++  var size = Module['wgSize'];
++
++  if (!size) {
++    return 0;
++  }
++  Module['wgSize'] = null;
++  HEAP32[w >> 2] = size[0];
++  HEAP32[h >> 2] = size[1];
++  return 1;
++});
++
++/**********************************************************************//**
++  Resize the game to the size the page asks for.
++**************************************************************************/
++static void wg_resize(void)
++{
++  int w, h;
++
++  if (wg_requested_size(&w, &h)
++      && (w != main_window_width() || h != main_window_height())) {
++    SDL_SetWindowSize(main_data.screen, w, h);
++    if (create_surfaces(w, h)) {
++      GUI_SDL_OPTION(screen) = VIDEO_MODE(w, h);
++      update_queue_add(real_resize_window_callback, NULL);
++    }
++  }
++}
++#endif /* __EMSCRIPTEN__ */
++
+ /**********************************************************************//**
+   Change fullscreen status after option changed.
+ **************************************************************************/
+@@ -982,8 +1026,10 @@ void options_extra_init(void)
+     log_error("Didn't find option %s!", GUI_SDL_OPTION_STR(var));           \
+   }
+ 
++#ifndef __EMSCRIPTEN__
+   option_var_set_callback(fullscreen, fullscreen_callback);
+   option_var_set_callback(screen, resize_window_callback);
++#endif
+ #undef option_var_set_callback
+ }
+ 
+@@ -1054,6 +1100,17 @@ int ui_main(int argc, char *argv[])
+       GUI_SDL_OPTION(default_screen_size_set) = TRUE;
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    {
++      int w, h;
++
++      GUI_SDL_OPTION(fullscreen) = FALSE;
++      if (wg_requested_size(&w, &h)) {
++        GUI_SDL_OPTION(screen) = VIDEO_MODE(w, h);
++      }
++    }
++#endif /* __EMSCRIPTEN__ */
++
+     if (GUI_SDL_OPTION(fullscreen)) {
+       flags |= SDL_WINDOW_FULLSCREEN;
+     } else {
+diff --git a/client/gui-sdl2/optiondlg.c b/client/gui-sdl2/optiondlg.c
+index f6523ad..56ff6bd 100644
+--- a/client/gui-sdl2/optiondlg.c
++++ b/client/gui-sdl2/optiondlg.c
+@@ -892,6 +892,7 @@ static struct option_dialog *option_dialog_new(void)
+   widget_resize(widget, widget->size.w, widget->size.h + adj_size(4));
+   add_to_gui_list(ID_OPTIONS_DISC_BUTTON, widget);
+ 
++#ifndef __EMSCRIPTEN__
+   /* Create quit widget button. */
+   widget = create_icon_button_from_chars_fonto(NULL, window->dst,
+                                                _("Quit"),
+@@ -901,6 +902,7 @@ static struct option_dialog *option_dialog_new(void)
+   set_wstate(widget, FC_WS_NORMAL);
+   widget_resize(widget, widget->size.w, widget->size.h + adj_size(4));
+   add_to_gui_list(ID_OPTIONS_EXIT_BUTTON, widget);
++#endif /* __EMSCRIPTEN__ */
+ 
+   pdialog->begin_widget_list = widget;
+   pdialog->main_widget_list = widget;
+diff --git a/client/gui-sdl2/pages.c b/client/gui-sdl2/pages.c
+index c7f17fc..cf99c16 100644
+--- a/client/gui-sdl2/pages.c
++++ b/client/gui-sdl2/pages.c
+@@ -220,6 +220,10 @@ static void show_main_page(void)
+   h = MAX(h, pwidget->size.h);
+   count++;
+ 
++#ifndef __EMSCRIPTEN__
++  /* On the web the game is single player only, and the page is the
++   * game's window: there is nothing to join or quit to */
++
+   /* Join Game */
+   pwidget = create_iconlabel_from_chars_fonto(NULL, pwindow->dst,
+                                               _("Join Game"),
+@@ -267,6 +271,7 @@ static void show_main_page(void)
+   area.w = MAX(area.w, pwidget->size.w);
+   h = MAX(h, pwidget->size.h);
+   count++;
++#endif /* __EMSCRIPTEN__ */
+ 
+   /* Options */
+   pwidget = create_iconlabel_from_chars_fonto(NULL, pwindow->dst,
+@@ -284,6 +289,7 @@ static void show_main_page(void)
+   h = MAX(h, pwidget->size.h);
+   count++;
+ 
++#ifndef __EMSCRIPTEN__
+   /* Quit */
+   pwidget = create_iconlabel_from_chars_fonto(NULL, pwindow->dst,
+                                               _("Quit"),
+@@ -299,6 +305,7 @@ static void show_main_page(void)
+   area.w = MAX(area.w, pwidget->size.w);
+   h = MAX(h, pwidget->size.h);
+   count++;
++#endif /* __EMSCRIPTEN__ */
+ 
+   start_menu->begin_widget_list = pwidget;
+ 
+diff --git a/client/options.c b/client/options.c
+index b1c9733..218d7a9 100644
+--- a/client/options.c
++++ b/client/options.c
+@@ -20,6 +20,10 @@
+ #include <sys/stat.h>
+ #include <sys/types.h>
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
++
+ /* utility */
+ #include "capability.h"
+ #include "deprecations.h"
+@@ -3147,6 +3151,8 @@ static struct client_option client_options[] = {
+                   COC_INTERFACE, GUI_SDL, TRUE, NULL),
+ 
+   /* gui-sdl2 client specific options. */
++#ifndef __EMSCRIPTEN__
++  /* On the web the page sizes the game and owns full screen */
+   GEN_BOOL_OPTION(gui_sdl2_fullscreen, N_("Fullscreen"),
+                   N_("If this option is set the client will use the "
+                      "whole screen area for drawing."),
+@@ -3155,6 +3161,7 @@ static struct client_option client_options[] = {
+                    N_("This option controls the resolution of the "
+                       "selected screen."),
+                    COC_INTERFACE, GUI_SDL2, 640, 480, NULL),
++#endif /* __EMSCRIPTEN__ */
+   GEN_BOOL_OPTION(gui_sdl2_swrenderer, N_("Use software rendering"),
+                   N_("Usually hardware rendering is used when possible. "
+                      "With this option set, software rendering is always used."),
+@@ -6102,6 +6109,24 @@ static void option_save_output_window_callback(enum log_level lvl,
+   va_end(args);
+ }
+ 
++#ifdef __EMSCRIPTEN__
++/************************************************************************//**
++  Says nothing about saving.
++****************************************************************************/
++static void wg_quiet_log(enum log_level lvl, const char *msg, ...)
++{
++}
++
++/************************************************************************//**
++  The page never closes the client, so it asks it to write its options
++  now and then.
++****************************************************************************/
++EMSCRIPTEN_KEEPALIVE void wg_save_options(void)
++{
++  options_save(wg_quiet_log);
++}
++#endif /* __EMSCRIPTEN__ */
++
+ /************************************************************************//**
+   Save the options as soon as they have been synced with the server.
+ ****************************************************************************/
+diff --git a/client/packhand.c b/client/packhand.c
+index b04489e..e6a2459 100644
+--- a/client/packhand.c
++++ b/client/packhand.c
+@@ -83,6 +83,7 @@
+ #include "audio.h"
+ #include "client_main.h"
+ #include "climap.h"
++#include "chatline_common.h"   /* send_chat() */
+ #include "climisc.h"
+ #include "clitreaty.h"
+ #include "connectdlg_common.h"
+@@ -2990,6 +2991,16 @@ void handle_conn_info(const struct packet_conn_info *pinfo)
+   if (preparing_client_state) {
+     set_client_state(C_S_PREPARING);
+   }
++
++#ifdef __EMSCRIPTEN__
++  /* The page started us with its Resume save (--file): once the server
++   * gives us our player back, carry on playing. */
++  if (wg_resume && pinfo->used && pinfo->id == client.conn.id
++      && NULL != client.conn.playing && C_S_PREPARING == client_state()) {
++    wg_resume = FALSE;
++    send_chat("/start");
++  }
++#endif /* __EMSCRIPTEN__ */
+ }
+ 
+ /************************************************************************//**
+diff --git a/meson.build b/meson.build
+index 6ef99c4..52fee72 100644
+--- a/meson.build
++++ b/meson.build
+@@ -657,17 +657,18 @@ int main(void) { int *var = nullptr; return 0; }''',
+ endif
+ 
+ if host_system == 'emscripten'
++  # No threads, so the page needs no cross-origin isolation
++  thread_dep = []
+   icu_dep = []
+   zlib_dep = []
+   syslua = 'false'
+-  ems_suffix = 'html'
++  ems_suffix = 'js'
+ 
+   priv_conf_data.set('ALWAYS_ROOT', 1)
+ 
+   emscripten_use_args = [
+      '-s', 'USE_ICU=1',
+-     '-s', 'USE_ZLIB=1',
+-     '-s', 'USE_PTHREADS=1'
++     '-s', 'USE_ZLIB=1'
+     ]
+ 
+   add_global_arguments(
+@@ -675,11 +676,30 @@ if host_system == 'emscripten'
+      language : [ 'c', 'cpp'])
+   add_global_link_arguments(
+      emscripten_use_args,
+-     '-s', 'TOTAL_MEMORY=64MB',
+-     '-sSTACK_SIZE=131072',
++     '-sALLOW_MEMORY_GROWTH',
++     '-sSTACK_SIZE=4MB',
+      '-sASYNCIFY',
++     '-sASYNCIFY_STACK_SIZE=131072',
+      language : [ 'c', 'cpp'])
++
++  # The page runs main() of the client, and of the server in a Web Worker;
++  # they talk through platforms/emscripten/wgpipe.js
++  ems_largs = [
++     '--js-library', meson.current_source_dir() / 'platforms/emscripten/wgpipe.js',
++     '-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$WGPIPE',
++     '-sINVOKE_RUN=0',
++     '-sEXPORTED_RUNTIME_METHODS=FS,callMain',
++     '-sFORCE_FILESYSTEM'
++    ]
++  # Sending and reading packets never sleeps, so Asyncify leaves that
++  # (large, generated) code as it is
++  ems_client_largs = ems_largs + [ '-sENVIRONMENT=web',
++    '-sASYNCIFY_REMOVE=["send_packet_*","receive_packet_*","dsend_packet_*","dio_*","packets_*"]' ]
++  # The server sleeps only in select(), which it calls directly
++  ems_server_largs = ems_largs + [ '-sENVIRONMENT=worker', '-sEXIT_RUNTIME',
++                                   '-sASYNCIFY_IGNORE_INDIRECT' ]
+ else
++  thread_dep = dependency('threads')
+   priv_conf_data.set('HAVE_FCDB', 1)
+   priv_conf_data.set('HAVE_FCDB_SQLITE3', 1)
+   zlib_dep = c_compiler.find_library('z', dirs: cross_lib_path)
+@@ -693,6 +713,8 @@ else
+   endif
+ 
+   ems_suffix = []
++  ems_client_largs = []
++  ems_server_largs = []
+ endif
+ 
+ # Set unconditionally, as it was checked as hard requirement
+@@ -1443,7 +1465,7 @@ common_lib = library('freeciv',
+                  net_dep, jansson_dep, lua_dep, bz2_dep, lzma_dep, zstd_dep,
+                  bcrypt_lib_dep, iconv_lib_dep,
+                  gettext_dep, charset_dep, mw_dep,
+-                 dependency('threads')],
++                 thread_dep],
+   install : true
+   )
+ 
+@@ -1588,6 +1610,7 @@ if server_type != 'disabled'
+     include_directories: server_inc,
+     sources: [verhdr],
+     link_with: [server_lib, common_lib, ais],
++    link_args: ems_server_largs,
+     dependencies: [m_dep, net_dep, readline_dep, gettext_dep, mw_extra_dep],
+     install: true,
+     win_subsystem: 'console'
+@@ -3822,6 +3845,7 @@ executable('freeciv-sdl2',
+                  sdl2_image_dep, sdl2_gfx_dep, sdl2_ttf_dep,
+                  net_dep, gettext_dep, mw_extra_dep],
+   link_with: client_common,
++  link_args: ems_client_largs,
+   name_suffix: ems_suffix,
+   install: true,
+   win_subsystem: 'windows'
+diff --git a/platforms/emscripten/server-worker.js b/platforms/emscripten/server-worker.js
+new file mode 100644
+index 0000000..bb4e641
+--- /dev/null
++++ b/platforms/emscripten/server-worker.js
+@@ -0,0 +1,88 @@
++/*
++ * server-worker.js: runs freeciv-server.js (beside this file) in a Web Worker
++ *
++ * The page talks to it with messages:
++ *   { type: "start", args, files }  writes files ({ path: bytes }) and runs
++ *                                   main(args)
++ *   { type: "connect", port }       a client connection (wgpipe.js)
++ *   { type: "snapshot" }            saves the game in progress to /wg/,
++ *                                   then answers { type: "snapshotted" }
++ * and hears back:
++ *   { type: "listening" }           the server takes connections
++ *   { type: "saved", path, bytes }  after each save
++ *   { type: "log", text }           what the server prints
++ *   { type: "exit", code }          the server quit
++ *
++ * Of its own autosaves only the newest is kept, since each turn adds one.
++ *
++ * This file is licensed under Gnu General Public License version 2 or later.
++ */
++
++let accept = null;
++const waiting = [];
++let lastAuto = null;
++
++self.onmessage = ({ data: m }) => {
++  if (m.type === "connect") {
++    if (accept) {
++      accept(m.port);
++    } else {
++      waiting.push(m.port);
++    }
++  } else if (m.type === "snapshot") {
++    self.Module?._wg_snapshot?.();
++    postMessage({ type: "snapshotted" });
++  } else if (m.type === "start") {
++    start(m);
++  }
++};
++
++function start({ args, files }) {
++  const log = (text) => postMessage({ type: "log", text });
++  const Module = {
++    print: log,
++    printErr: log,
++    wgPipe: {
++      listen(port, onConnection) {
++        accept = onConnection;
++        waiting.splice(0).forEach(onConnection);
++        postMessage({ type: "listening", port });
++      },
++      unlisten() {
++        accept = null;
++      },
++    },
++    wgSaved(path) {
++      const FS = Module.FS;
++      const bytes = FS.readFile(path);
++
++      if (/-auto\.sav/.test(path)) {
++        if (lastAuto && lastAuto !== path) {
++          try {
++            FS.unlink(lastAuto);
++          } catch {
++            /* already gone */
++          }
++        }
++        lastAuto = path;
++      }
++      postMessage({ type: "saved", path, bytes }, [bytes.buffer]);
++    },
++    onRuntimeInitialized() {
++      const FS = Module.FS;
++
++      FS.mkdirTree("/wg");
++      for (const [path, bytes] of Object.entries(files)) {
++        FS.mkdirTree(path.slice(0, path.lastIndexOf("/")) || "/");
++        FS.writeFile(path, bytes);
++      }
++      Module.callMain(args);
++    },
++    onExit(code) {
++      postMessage({ type: "exit", code });
++    },
++  };
++
++  self.Module = Module;
++  importScripts(new URL("freeciv-server.js", self.location.href).href);
++}
+diff --git a/platforms/emscripten/wgpipe.js b/platforms/emscripten/wgpipe.js
+new file mode 100644
+index 0000000..689d4ec
+--- /dev/null
++++ b/platforms/emscripten/wgpipe.js
+@@ -0,0 +1,220 @@
++/*
++ * wgpipe.js: sockets between the client and the server over MessagePorts
++ *
++ * The client runs on the page and the server in a Web Worker, so instead of
++ * TCP they talk over MessagePorts, one per connection. This replaces the
++ * WebSocket backend of Emscripten's SOCKFS. The page provides
++ * Module.wgPipe = { connect(port) } on the client side, returning a
++ * MessagePort (or null when nothing listens), and the worker provides
++ * Module.wgPipe = { listen(port, onConnection) } on the server side.
++ * A message is an ArrayBuffer of stream bytes, or null when the other end
++ * closes.
++ *
++ * This file is licensed under Gnu General Public License version 2 or later.
++ */
++
++addToLibrary({
++  $WGPIPE__deps: ['$SOCKFS', '$FS'],
++  $WGPIPE__postset: 'WGPIPE.install();',
++  $WGPIPE: {
++    waiter: null,
++    install() {
++      SOCKFS.websocket_sock_ops = WGPIPE.ops;
++    },
++    // Wakes a wg_pipe_wait() in progress
++    wake() {
++      var waiter = WGPIPE.waiter;
++
++      WGPIPE.waiter = null;
++      waiter?.();
++    },
++    attach(sock, port) {
++      sock.port = port;
++      sock.closed = false;
++      port.onmessage = (e) => {
++        if (e.data === null) {
++          sock.closed = true;
++          port.close();
++        } else {
++          sock.recv_queue.push(new Uint8Array(e.data));
++        }
++        WGPIPE.wake();
++      };
++    },
++    ops: {
++      poll(sock) {
++        if (sock.server) {
++          return sock.pending.length ? ({{{ cDefs.POLLRDNORM }}} | {{{ cDefs.POLLIN }}}) : 0;
++        }
++        if (!sock.port) {
++          return {{{ cDefs.POLLOUT }}};
++        }
++
++        var mask = 0;
++
++        if (sock.recv_queue.length || sock.closed) {
++          mask |= ({{{ cDefs.POLLRDNORM }}} | {{{ cDefs.POLLIN }}});
++        }
++        if (sock.closed) {
++          mask |= {{{ cDefs.POLLHUP }}};
++        } else {
++          mask |= {{{ cDefs.POLLOUT }}};
++        }
++
++        return mask;
++      },
++      ioctl(sock, request, arg) {
++        if (request == {{{ cDefs.FIONREAD }}}) {
++          var bytes = sock.recv_queue.length ? sock.recv_queue[0].length : 0;
++
++          {{{ makeSetValue('arg', '0', 'bytes', 'i32') }}};
++          return 0;
++        }
++        return {{{ cDefs.EINVAL }}};
++      },
++      close(sock) {
++        if (sock.server) {
++          Module['wgPipe']?.unlisten?.(sock.sport);
++          sock.server = null;
++        }
++        if (sock.port && !sock.closed) {
++          sock.port.postMessage(null);
++          sock.port.close();
++        }
++        sock.closed = true;
++        return 0;
++      },
++      bind(sock, addr, port) {
++        if (typeof sock.saddr != 'undefined' || typeof sock.sport != 'undefined') {
++          throw new FS.ErrnoError({{{ cDefs.EINVAL }}});
++        }
++        sock.saddr = addr;
++        sock.sport = port;
++      },
++      connect(sock, addr, port) {
++        if (sock.server) {
++          throw new FS.ErrnoError({{{ cDefs.EOPNOTSUPP }}});
++        }
++        if (sock.port) {
++          throw new FS.ErrnoError({{{ cDefs.EISCONN }}});
++        }
++
++        var mp = Module['wgPipe']?.connect?.(port);
++
++        if (!mp) {
++          throw new FS.ErrnoError({{{ cDefs.ECONNREFUSED }}});
++        }
++        WGPIPE.attach(sock, mp);
++        sock.daddr = addr;
++        sock.dport = port;
++      },
++      listen(sock, backlog) {
++        var pipe = Module['wgPipe'];
++
++        if (!pipe?.listen) {
++          throw new FS.ErrnoError({{{ cDefs.EOPNOTSUPP }}});
++        }
++        if (sock.server) {
++          throw new FS.ErrnoError({{{ cDefs.EINVAL }}});
++        }
++        sock.server = true;
++        pipe.listen(sock.sport, (mp) => {
++          var newsock = SOCKFS.createSocket(sock.family, sock.type, sock.protocol);
++
++          WGPIPE.attach(newsock, mp);
++          newsock.daddr = '127.0.0.1';
++          newsock.dport = 0;
++          sock.pending.push(newsock);
++          WGPIPE.wake();
++        });
++      },
++      accept(listensock) {
++        if (!listensock.server || !listensock.pending.length) {
++          throw new FS.ErrnoError({{{ cDefs.EINVAL }}});
++        }
++
++        var newsock = listensock.pending.shift();
++
++        newsock.stream.flags = listensock.stream.flags;
++        return newsock;
++      },
++      getname(sock, peer) {
++        if (peer) {
++          if (sock.daddr === undefined) {
++            throw new FS.ErrnoError({{{ cDefs.ENOTCONN }}});
++          }
++          return { addr: sock.daddr, port: sock.dport };
++        }
++        return { addr: sock.saddr || '127.0.0.1', port: sock.sport || 0 };
++      },
++      sendmsg(sock, buffer, offset, length, addr, port) {
++        if (!sock.port) {
++          throw new FS.ErrnoError({{{ cDefs.ENOTCONN }}});
++        }
++        if (sock.closed) {
++          throw new FS.ErrnoError({{{ cDefs.EPIPE }}});
++        }
++
++        var data = new Uint8Array(length);
++
++        data.set(buffer.subarray(offset, offset + length));
++        sock.port.postMessage(data.buffer, [data.buffer]);
++        return length;
++      },
++      recvmsg(sock, length) {
++        if (sock.server) {
++          throw new FS.ErrnoError({{{ cDefs.ENOTCONN }}});
++        }
++
++        var queued = sock.recv_queue.shift();
++
++        if (!queued) {
++          if (!sock.port) {
++            throw new FS.ErrnoError({{{ cDefs.ENOTCONN }}});
++          }
++          if (sock.closed) {
++            return null;
++          }
++          throw new FS.ErrnoError({{{ cDefs.EAGAIN }}});
++        }
++        if (queued.length > length) {
++          sock.recv_queue.unshift(queued.subarray(length));
++          queued = queued.subarray(0, length);
++        }
++
++        return { buffer: queued, addr: sock.daddr, port: sock.dport };
++      }
++    }
++  },
++
++  // Sleeps for up to ms milliseconds, or until a pipe has news
++  wg_pipe_wait__deps: ['$WGPIPE'],
++  wg_pipe_wait__async: true,
++  wg_pipe_wait: (ms) => Asyncify.handleSleep((wakeUp) => {
++    var timer = setTimeout(() => WGPIPE.wake(), ms);
++
++    WGPIPE.waiter = () => {
++      clearTimeout(timer);
++      wakeUp();
++    };
++  }),
++
++  // Sleeps until the browser draws the next frame, and while the page
++  // holds the game (Module.wgHeld)
++  wg_next_frame__async: true,
++  wg_next_frame: () => Asyncify.handleSleep((wakeUp) => {
++    var tick = () => {
++      if (Module['wgHeld']) {
++        setTimeout(tick, 100);
++      } else {
++        wakeUp();
++      }
++    };
++
++    if (typeof requestAnimationFrame == 'function' && document.visibilityState != 'hidden') {
++      requestAnimationFrame(tick);
++    } else {
++      setTimeout(tick, 50);
++    }
++  }),
++});
+diff --git a/server/gamehand.c b/server/gamehand.c
+index d9658f9..b42d548 100644
+--- a/server/gamehand.c
++++ b/server/gamehand.c
+@@ -1252,6 +1252,12 @@ void handle_single_want_hack_req(struct connection *pc,
+     log_debug("Failed to read authentication token");
+   }
+ 
++#ifdef __EMSCRIPTEN__
++  /* The client that started this server can't write to its files, but
++   * it's the only one that can reach it. */
++  you_have_hack = TRUE;
++#endif
++
+   if (you_have_hack) {
+     conn_set_access(pc, ALLOW_HACK, TRUE);
+   }
+diff --git a/server/savegame/savemain.c b/server/savegame/savemain.c
+index b19feb1..240d479 100644
+--- a/server/savegame/savemain.c
++++ b/server/savegame/savemain.c
+@@ -37,6 +37,7 @@
+ #include "savegame3.h"
+ 
+ #include "savemain.h"
++#include "srv_main.h"
+ 
+ static fc_thread *save_thread = NULL;
+ 
+@@ -133,6 +134,23 @@ static void save_thread_data_free(struct save_thread_data *stdata)
+ /************************************************************************//**
+   Run game saving thread.
+ ****************************************************************************/
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/* Tells the page a game was saved, so it can keep the file */
++EM_JS(void, wg_saved, (const char *path), {
++  Module['wgSaved']?.(UTF8ToString(path));
++});
++
++/* The game in progress, for the page's Resume; none before it starts */
++EMSCRIPTEN_KEEPALIVE void wg_snapshot(void)
++{
++  if (S_S_RUNNING == server_state()) {
++    save_game("/wg/snapshot", "snapshot", FALSE);
++  }
++}
++#endif /* __EMSCRIPTEN__ */
++
+ static void save_thread_run(void *arg)
+ {
+   struct save_thread_data *stdata = (struct save_thread_data *)arg;
+@@ -144,6 +162,9 @@ static void save_thread_run(void *arg)
+     notify_conn(NULL, NULL, E_LOG_ERROR, ftc_warning, _("Failed saving game."));
+   } else {
+     con_write(C_OK, _("Game saved as %s"), stdata->filepath);
++#ifdef __EMSCRIPTEN__
++    wg_saved(stdata->filepath);
++#endif
+   }
+ 
+   save_thread_data_free(stdata);
+diff --git a/utility/netintf.c b/utility/netintf.c
+index 344665d..efde429 100644
+--- a/utility/netintf.c
++++ b/utility/netintf.c
+@@ -50,6 +50,9 @@
+ #ifdef FREECIV_MSWINDOWS
+ #include <windows.h>   /* GetTempPath */
+ #endif
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
+ 
+ /* utility */
+ #include "bugs.h"
+@@ -127,7 +130,48 @@ int fc_select(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+ {
+   int result;
+ 
++#ifdef __EMSCRIPTEN__
++  /* Emscripten's select() never waits: poll, and sleep between polls
++   * until the time is up or a pipe has news. */
++  fd_set rd, wr, ex;
++  fc_timeval zero = { 0, 0 };
++  double end = timeout != NULL
++    ? emscripten_get_now() + timeout->tv_sec * 1000.0 + timeout->tv_usec / 1000.0
++    : -1;
++
++  for (;;) {
++    double left;
++
++    if (readfds != NULL) {
++      rd = *readfds;
++    }
++    if (writefds != NULL) {
++      wr = *writefds;
++    }
++    if (exceptfds != NULL) {
++      ex = *exceptfds;
++    }
++    result = select(n, readfds != NULL ? &rd : NULL,
++                    writefds != NULL ? &wr : NULL,
++                    exceptfds != NULL ? &ex : NULL, &zero);
++    left = end < 0 ? 1000 : end - emscripten_get_now();
++    if (result != 0 || left <= 0) {
++      break;
++    }
++    wg_pipe_wait((int) (left < 1000 ? left + 1 : 1000));
++  }
++  if (readfds != NULL) {
++    *readfds = rd;
++  }
++  if (writefds != NULL) {
++    *writefds = wr;
++  }
++  if (exceptfds != NULL) {
++    *exceptfds = ex;
++  }
++#else  /* __EMSCRIPTEN__ */
+   result = select(n, readfds, writefds, exceptfds, timeout);
++#endif /* __EMSCRIPTEN__ */
+ 
+ #ifdef FREECIV_HAVE_WINSOCK
+   if (result == -1) {
+diff --git a/utility/netintf.h b/utility/netintf.h
+index 96617ae..db0a9f9 100644
+--- a/utility/netintf.h
++++ b/utility/netintf.h
+@@ -90,6 +90,12 @@ typedef TIMEVAL fc_timeval;
+ typedef struct timeval fc_timeval;
+ #endif /* FREECIV_MSWINDOWS */
+ 
++#ifdef __EMSCRIPTEN__
++/* In platforms/emscripten/wgpipe.js */
++void wg_pipe_wait(int ms);
++void wg_next_frame(void);
++#endif /* __EMSCRIPTEN__ */
++
+ int fc_connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);
+ int fc_select(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+               fc_timeval *timeout);
+diff --git a/utility/support.c b/utility/support.c
+index 042568b..2280d2b 100644
+--- a/utility/support.c
++++ b/utility/support.c
+@@ -55,6 +55,9 @@
+ #ifdef GENERATING_MAC
+ #include <events.h>             /* for WaitNextEvent() */
+ #endif
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>         /* emscripten_sleep() */
++#endif
+ #ifdef HAVE_FCNTL_H
+ #include <fcntl.h>
+ #endif
+@@ -640,7 +643,10 @@ const char *fc_strerror(fc_errno err)
+ ****************************************************************************/
+ void fc_usleep(unsigned long usec)
+ {
+-#ifdef HAVE_NANOSLEEP
++#ifdef __EMSCRIPTEN__
++  /* nanosleep() would spin without letting the browser run */
++  emscripten_sleep(usec / 1000);
++#elif defined(HAVE_NANOSLEEP)
+   struct timespec ts;
+ 
+   if (usec >= 1000000) {
