@@ -50,6 +50,9 @@
 #ifdef FREECIV_MSWINDOWS
 #include <windows.h>   /* GetTempPath */
 #endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 /* utility */
 #include "bugs.h"
@@ -127,7 +130,48 @@ int fc_select(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 {
   int result;
 
+#ifdef __EMSCRIPTEN__
+  /* Emscripten's select() never waits: poll, and sleep between polls
+   * until the time is up or a pipe has news. */
+  fd_set rd, wr, ex;
+  fc_timeval zero = { 0, 0 };
+  double end = timeout != NULL
+    ? emscripten_get_now() + timeout->tv_sec * 1000.0 + timeout->tv_usec / 1000.0
+    : -1;
+
+  for (;;) {
+    double left;
+
+    if (readfds != NULL) {
+      rd = *readfds;
+    }
+    if (writefds != NULL) {
+      wr = *writefds;
+    }
+    if (exceptfds != NULL) {
+      ex = *exceptfds;
+    }
+    result = select(n, readfds != NULL ? &rd : NULL,
+                    writefds != NULL ? &wr : NULL,
+                    exceptfds != NULL ? &ex : NULL, &zero);
+    left = end < 0 ? 1000 : end - emscripten_get_now();
+    if (result != 0 || left <= 0) {
+      break;
+    }
+    wg_pipe_wait((int) (left < 1000 ? left + 1 : 1000));
+  }
+  if (readfds != NULL) {
+    *readfds = rd;
+  }
+  if (writefds != NULL) {
+    *writefds = wr;
+  }
+  if (exceptfds != NULL) {
+    *exceptfds = ex;
+  }
+#else  /* __EMSCRIPTEN__ */
   result = select(n, readfds, writefds, exceptfds, timeout);
+#endif /* __EMSCRIPTEN__ */
 
 #ifdef FREECIV_HAVE_WINSOCK
   if (result == -1) {

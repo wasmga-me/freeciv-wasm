@@ -133,6 +133,15 @@ static void save_thread_data_free(struct save_thread_data *stdata)
 /************************************************************************//**
   Run game saving thread.
 ****************************************************************************/
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+/* Tells the page a game was saved, so it can keep the file */
+EM_JS(void, wg_saved, (const char *path), {
+  Module['wgSaved']?.(UTF8ToString(path));
+});
+#endif /* __EMSCRIPTEN__ */
+
 static void save_thread_run(void *arg)
 {
   struct save_thread_data *stdata = (struct save_thread_data *)arg;
@@ -144,6 +153,9 @@ static void save_thread_run(void *arg)
     notify_conn(NULL, NULL, E_LOG_ERROR, ftc_warning, _("Failed saving game."));
   } else {
     con_write(C_OK, _("Game saved as %s"), stdata->filepath);
+#ifdef __EMSCRIPTEN__
+    wg_saved(stdata->filepath);
+#endif
   }
 
   save_thread_data_free(stdata);

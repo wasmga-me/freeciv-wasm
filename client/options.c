@@ -3147,6 +3147,8 @@ static struct client_option client_options[] = {
                   COC_INTERFACE, GUI_SDL, TRUE, NULL),
 
   /* gui-sdl2 client specific options. */
+#ifndef __EMSCRIPTEN__
+  /* On the web the page sizes the game and owns full screen */
   GEN_BOOL_OPTION(gui_sdl2_fullscreen, N_("Fullscreen"),
                   N_("If this option is set the client will use the "
                      "whole screen area for drawing."),
@@ -3155,6 +3157,7 @@ static struct client_option client_options[] = {
                    N_("This option controls the resolution of the "
                       "selected screen."),
                    COC_INTERFACE, GUI_SDL2, 640, 480, NULL),
+#endif /* __EMSCRIPTEN__ */
   GEN_BOOL_OPTION(gui_sdl2_swrenderer, N_("Use software rendering"),
                   N_("Usually hardware rendering is used when possible. "
                      "With this option set, software rendering is always used."),

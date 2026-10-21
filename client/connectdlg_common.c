@@ -80,6 +80,27 @@
 #define HAVE_USABLE_FORK
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+/* The page runs the server in a Web Worker: these stand for fork() and
+ * exec(), kill() and waitpid(). */
+EM_JS(int, wg_start_server, (int argc, char **argv), {
+  var args = [];
+
+  for (var i = 1; i < argc; i++) {
+    args.push(UTF8ToString(HEAPU32[(argv >> 2) + i]));
+  }
+  return Module['wgStartServer']?.(args) ? 1 : -1;
+});
+EM_JS(void, wg_stop_server, (void), {
+  Module['wgStopServer']?.();
+});
+EM_JS(int, wg_server_exited, (void), {
+  return Module['wgServerExited']?.() ? 1 : 0;
+});
+#endif /* __EMSCRIPTEN__ */
+
 #ifdef HAVE_USABLE_FORK
 static pid_t server_pid = -1;
 #elif FREECIV_MSWINDOWS
@@ -198,7 +219,10 @@ void client_kill_server(bool force)
       /* Either we already disconnected, or we didn't get control of the
        * server. In either case, the only thing to do is a "hard" kill of
        * the server. */
-#ifdef HAVE_USABLE_FORK
+#ifdef __EMSCRIPTEN__
+      wg_stop_server();
+      server_pid = -1;
+#elif defined(HAVE_USABLE_FORK)
       kill(server_pid, SIGTERM);
       waitpid(server_pid, NULL, WUNTRACED);
       server_pid = -1;
@@ -367,7 +391,11 @@ bool client_start_server(void)
       astr_free(&srv_cmdline_opts);
     }
 
+#ifdef __EMSCRIPTEN__
+    server_pid = wg_start_server(argc, argv);
+#else
     server_pid = fork();
+#endif
     server_quitting = FALSE;
 
     if (server_pid == 0) {
@@ -578,7 +606,11 @@ bool client_start_server(void)
   while (connect_to_server(user_name, "localhost", internal_server_port,
                            buf, sizeof(buf)) == -1) {
     fc_usleep(WAIT_BETWEEN_TRIES);
-#ifdef HAVE_USABLE_FORK
+#ifdef __EMSCRIPTEN__
+    if (server_pid < 0 || wg_server_exited()) {
+      break;
+    }
+#elif defined(HAVE_USABLE_FORK)
 #ifndef FREECIV_MSWINDOWS
     if (waitpid(server_pid, NULL, WNOHANG) != 0) {
       break;

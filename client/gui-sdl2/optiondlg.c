@@ -892,6 +892,7 @@ static struct option_dialog *option_dialog_new(void)
   widget_resize(widget, widget->size.w, widget->size.h + adj_size(4));
   add_to_gui_list(ID_OPTIONS_DISC_BUTTON, widget);
 
+#ifndef __EMSCRIPTEN__
   /* Create quit widget button. */
   widget = create_icon_button_from_chars_fonto(NULL, window->dst,
                                                _("Quit"),
@@ -901,6 +902,7 @@ static struct option_dialog *option_dialog_new(void)
   set_wstate(widget, FC_WS_NORMAL);
   widget_resize(widget, widget->size.w, widget->size.h + adj_size(4));
   add_to_gui_list(ID_OPTIONS_EXIT_BUTTON, widget);
+#endif /* __EMSCRIPTEN__ */
 
   pdialog->begin_widget_list = widget;
   pdialog->main_widget_list = widget;

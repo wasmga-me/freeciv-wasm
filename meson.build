@@ -657,17 +657,18 @@ int main(void) { int *var = nullptr; return 0; }''',
 endif
 
 if host_system == 'emscripten'
+  # No threads, so the page needs no cross-origin isolation
+  thread_dep = []
   icu_dep = []
   zlib_dep = []
   syslua = 'false'
-  ems_suffix = 'html'
+  ems_suffix = 'js'
 
   priv_conf_data.set('ALWAYS_ROOT', 1)
 
   emscripten_use_args = [
      '-s', 'USE_ICU=1',
-     '-s', 'USE_ZLIB=1',
-     '-s', 'USE_PTHREADS=1'
+     '-s', 'USE_ZLIB=1'
     ]
 
   add_global_arguments(
@@ -675,11 +676,25 @@ if host_system == 'emscripten'
      language : [ 'c', 'cpp'])
   add_global_link_arguments(
      emscripten_use_args,
-     '-s', 'TOTAL_MEMORY=64MB',
-     '-sSTACK_SIZE=131072',
+     '-sALLOW_MEMORY_GROWTH',
+     '-sSTACK_SIZE=4MB',
      '-sASYNCIFY',
+     '-sASYNCIFY_STACK_SIZE=131072',
      language : [ 'c', 'cpp'])
+
+  # The page runs main() of the client, and of the server in a Web Worker;
+  # they talk through platforms/emscripten/wgpipe.js
+  ems_largs = [
+     '--js-library', meson.current_source_dir() / 'platforms/emscripten/wgpipe.js',
+     '-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$WGPIPE',
+     '-sINVOKE_RUN=0',
+     '-sEXPORTED_RUNTIME_METHODS=FS,callMain',
+     '-sFORCE_FILESYSTEM'
+    ]
+  ems_client_largs = ems_largs + [ '-sENVIRONMENT=web' ]
+  ems_server_largs = ems_largs + [ '-sENVIRONMENT=worker', '-sEXIT_RUNTIME' ]
 else
+  thread_dep = dependency('threads')
   priv_conf_data.set('HAVE_FCDB', 1)
   priv_conf_data.set('HAVE_FCDB_SQLITE3', 1)
   zlib_dep = c_compiler.find_library('z', dirs: cross_lib_path)
@@ -693,6 +708,8 @@ else
   endif
 
   ems_suffix = []
+  ems_client_largs = []
+  ems_server_largs = []
 endif
 
 # Set unconditionally, as it was checked as hard requirement
@@ -1443,7 +1460,7 @@ common_lib = library('freeciv',
                  net_dep, jansson_dep, lua_dep, bz2_dep, lzma_dep, zstd_dep,
                  bcrypt_lib_dep, iconv_lib_dep,
                  gettext_dep, charset_dep, mw_dep,
-                 dependency('threads')],
+                 thread_dep],
   install : true
   )
 
@@ -1588,6 +1605,7 @@ if server_type != 'disabled'
     include_directories: server_inc,
     sources: [verhdr],
     link_with: [server_lib, common_lib, ais],
+    link_args: ems_server_largs,
     dependencies: [m_dep, net_dep, readline_dep, gettext_dep, mw_extra_dep],
     install: true,
     win_subsystem: 'console'
@@ -3822,6 +3840,7 @@ executable('freeciv-sdl2',
                  sdl2_image_dep, sdl2_gfx_dep, sdl2_ttf_dep,
                  net_dep, gettext_dep, mw_extra_dep],
   link_with: client_common,
+  link_args: ems_client_largs,
   name_suffix: ems_suffix,
   install: true,
   win_subsystem: 'windows'

@@ -1252,6 +1252,12 @@ void handle_single_want_hack_req(struct connection *pc,
     log_debug("Failed to read authentication token");
   }
 
+#ifdef __EMSCRIPTEN__
+  /* The client that started this server can't write to its files, but
+   * it's the only one that can reach it. */
+  you_have_hack = TRUE;
+#endif
+
   if (you_have_hack) {
     conn_set_access(pc, ALLOW_HACK, TRUE);
   }

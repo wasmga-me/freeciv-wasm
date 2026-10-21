@@ -220,6 +220,10 @@ static void show_main_page(void)
   h = MAX(h, pwidget->size.h);
   count++;
 
+#ifndef __EMSCRIPTEN__
+  /* On the web the game is single player only, and the page is the
+   * game's window: there is nothing to join or quit to */
+
   /* Join Game */
   pwidget = create_iconlabel_from_chars_fonto(NULL, pwindow->dst,
                                               _("Join Game"),
@@ -267,6 +271,7 @@ static void show_main_page(void)
   area.w = MAX(area.w, pwidget->size.w);
   h = MAX(h, pwidget->size.h);
   count++;
+#endif /* __EMSCRIPTEN__ */
 
   /* Options */
   pwidget = create_iconlabel_from_chars_fonto(NULL, pwindow->dst,
@@ -284,6 +289,7 @@ static void show_main_page(void)
   h = MAX(h, pwidget->size.h);
   count++;
 
+#ifndef __EMSCRIPTEN__
   /* Quit */
   pwidget = create_iconlabel_from_chars_fonto(NULL, pwindow->dst,
                                               _("Quit"),
@@ -299,6 +305,7 @@ static void show_main_page(void)
   area.w = MAX(area.w, pwidget->size.w);
   h = MAX(h, pwidget->size.h);
   count++;
+#endif /* __EMSCRIPTEN__ */
 
   start_menu->begin_widget_list = pwidget;
 

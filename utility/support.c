@@ -55,6 +55,9 @@
 #ifdef GENERATING_MAC
 #include <events.h>             /* for WaitNextEvent() */
 #endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>         /* emscripten_sleep() */
+#endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
@@ -640,7 +643,10 @@ const char *fc_strerror(fc_errno err)
 ****************************************************************************/
 void fc_usleep(unsigned long usec)
 {
-#ifdef HAVE_NANOSLEEP
+#ifdef __EMSCRIPTEN__
+  /* nanosleep() would spin without letting the browser run */
+  emscripten_sleep(usec / 1000);
+#elif defined(HAVE_NANOSLEEP)
   struct timespec ts;
 
   if (usec >= 1000000) {

@@ -37,6 +37,8 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+
+static void wg_resize(void);
 #endif
 
 /* SDL2 */
@@ -640,7 +642,12 @@ widget_id gui_event_loop(void *data,
       }
 
       tv.tv_sec = 0;
+#ifdef __EMSCRIPTEN__
+      /* The loop waits for the next frame below */
+      tv.tv_usec = 0;
+#else
       tv.tv_usec = 10000; /* 10ms*/
+#endif
 
       result = fc_select(net_socket + 1, &civfdset, NULL, NULL, &tv);
       if (result < 0) {
@@ -657,7 +664,9 @@ widget_id gui_event_loop(void *data,
         }
       }
     } else { /* If connection is not establish */
+#ifndef __EMSCRIPTEN__
       SDL_Delay(10);
+#endif
     }
     /* ========================================= */
 
@@ -869,7 +878,8 @@ widget_id gui_event_loop(void *data,
     update_main_screen();
 
 #ifdef __EMSCRIPTEN__
-    emscripten_sleep(100);
+    wg_next_frame();
+    wg_resize();
 #endif
   }
 
@@ -939,6 +949,40 @@ static void resize_window_callback(struct option *poption)
   update_queue_add(real_resize_window_callback, NULL);
 }
 
+#ifdef __EMSCRIPTEN__
+/**********************************************************************//**
+  The size the page asks for, if it asked since the last call.
+**************************************************************************/
+EM_JS(int, wg_requested_size, (int *w, int *h), {
+  var size = Module['wgSize'];
+
+  if (!size) {
+    return 0;
+  }
+  Module['wgSize'] = null;
+  HEAP32[w >> 2] = size[0];
+  HEAP32[h >> 2] = size[1];
+  return 1;
+});
+
+/**********************************************************************//**
+  Resize the game to the size the page asks for.
+**************************************************************************/
+static void wg_resize(void)
+{
+  int w, h;
+
+  if (wg_requested_size(&w, &h)
+      && (w != main_window_width() || h != main_window_height())) {
+    SDL_SetWindowSize(main_data.screen, w, h);
+    if (create_surfaces(w, h)) {
+      GUI_SDL_OPTION(screen) = VIDEO_MODE(w, h);
+      update_queue_add(real_resize_window_callback, NULL);
+    }
+  }
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**********************************************************************//**
   Change fullscreen status after option changed.
 **************************************************************************/
@@ -982,8 +1026,10 @@ void options_extra_init(void)
     log_error("Didn't find option %s!", GUI_SDL_OPTION_STR(var));           \
   }
 
+#ifndef __EMSCRIPTEN__
   option_var_set_callback(fullscreen, fullscreen_callback);
   option_var_set_callback(screen, resize_window_callback);
+#endif
 #undef option_var_set_callback
 }
 
@@ -1053,6 +1099,17 @@ int ui_main(int argc, char *argv[])
 
       GUI_SDL_OPTION(default_screen_size_set) = TRUE;
     }
+
+#ifdef __EMSCRIPTEN__
+    {
+      int w, h;
+
+      GUI_SDL_OPTION(fullscreen) = FALSE;
+      if (wg_requested_size(&w, &h)) {
+        GUI_SDL_OPTION(screen) = VIDEO_MODE(w, h);
+      }
+    }
+#endif /* __EMSCRIPTEN__ */
 
     if (GUI_SDL_OPTION(fullscreen)) {
       flags |= SDL_WINDOW_FULLSCREEN;

@@ -90,6 +90,12 @@ typedef TIMEVAL fc_timeval;
 typedef struct timeval fc_timeval;
 #endif /* FREECIV_MSWINDOWS */
 
+#ifdef __EMSCRIPTEN__
+/* In platforms/emscripten/wgpipe.js */
+void wg_pipe_wait(int ms);
+void wg_next_frame(void);
+#endif /* __EMSCRIPTEN__ */
+
 int fc_connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);
 int fc_select(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
               fc_timeval *timeout);
