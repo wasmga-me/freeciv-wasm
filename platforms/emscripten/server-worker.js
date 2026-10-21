@@ -5,7 +5,8 @@
  *   { type: "start", args, files }  writes files ({ path: bytes }) and runs
  *                                   main(args)
  *   { type: "connect", port }       a client connection (wgpipe.js)
- *   { type: "snapshot" }            saves the game in progress to /wg/
+ *   { type: "snapshot" }            saves the game in progress to /wg/,
+ *                                   then answers { type: "snapshotted" }
  * and hears back:
  *   { type: "listening" }           the server takes connections
  *   { type: "saved", path, bytes }  after each save
@@ -30,6 +31,7 @@ self.onmessage = ({ data: m }) => {
     }
   } else if (m.type === "snapshot") {
     self.Module?._wg_snapshot?.();
+    postMessage({ type: "snapshotted" });
   } else if (m.type === "start") {
     start(m);
   }

@@ -28,6 +28,10 @@
 #include <stdlib.h>
 #include <time.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 /* utility */
 #include "bitvector.h"
 #include "capstr.h"
@@ -1034,6 +1038,16 @@ enum client_states client_state(void)
 {
   return civclient_state;
 }
+
+#ifdef __EMSCRIPTEN__
+/**********************************************************************//**
+  Whether a game is being played, for the page's Resume.
+**************************************************************************/
+EMSCRIPTEN_KEEPALIVE int wg_playing(void)
+{
+  return C_S_RUNNING == civclient_state;
+}
+#endif /* __EMSCRIPTEN__ */
 
 /**********************************************************************//**
   Remove pconn from all connection lists in client, then free it.
