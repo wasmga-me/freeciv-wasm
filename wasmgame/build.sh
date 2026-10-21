@@ -68,14 +68,16 @@ port freetype freetype/freetype VER-2-13-3 freetype-VER-2-13-3 https://github.co
 port ogg emscripten-ports/ogg version_1 Ogg-version_1 https://github.com/emscripten-ports/ogg/archive/version_1.zip
 port vorbis emscripten-ports/vorbis version_1 Vorbis-version_1 https://github.com/emscripten-ports/vorbis/archive/version_1.zip
 # SDL2_gfx is pinned to a commit, not a tag.
+gfx_rev=2b147ffef10ec541d3eace326eafe11a54e635f8
 gfx=$(em-config CACHE)/ports/sdl2_gfx
-gfx_url=https://github.com/svn2github/sdl2_gfx/archive/2b147ffef10ec541d3eace326eafe11a54e635f8.zip
+gfx_src=$gfx/sdl2_gfx-$gfx_rev
+gfx_url=https://github.com/svn2github/sdl2_gfx/archive/$gfx_rev.zip
 if [ "$(cat "$gfx/.emscripten_url" 2>/dev/null)" != "$gfx_url" ]; then
   rm -rf "$gfx"
-  mkdir -p "$gfx/sdl2_gfx-2b147ffef10ec541d3eace326eafe11a54e635f8"
-  git -C "$gfx/sdl2_gfx-2b147ffef10ec541d3eace326eafe11a54e635f8" init -q
-  git -C "$gfx/sdl2_gfx-2b147ffef10ec541d3eace326eafe11a54e635f8" fetch -q --depth 1 https://github.com/svn2github/sdl2_gfx.git 2b147ffef10ec541d3eace326eafe11a54e635f8
-  git -C "$gfx/sdl2_gfx-2b147ffef10ec541d3eace326eafe11a54e635f8" -c advice.detachedHead=false checkout -q FETCH_HEAD
+  mkdir -p "$gfx_src"
+  git -C "$gfx_src" init -q
+  git -C "$gfx_src" fetch -q --depth 1 https://github.com/svn2github/sdl2_gfx.git "$gfx_rev"
+  git -C "$gfx_src" -c advice.detachedHead=false checkout -q FETCH_HEAD
   echo "$gfx_url" > "$gfx/.emscripten_url"
 fi
 
@@ -121,7 +123,7 @@ done
 cp "$d"/flags/*.png "$stage/data/flags/"
 for f in "$d"/themes/gui-sdl2/human/*; do
   case "$f" in
-    */fireflysung.ttf|*/sazanami-gothic.ttf|*/UnDotum.ttf|*/COPYING.fireflysung|*/COPYING.sazanami|*/COPYING.UnDotum|*/Makefile.am) ;;
+    */fireflysung.ttf|*/sazanami-gothic.ttf|*/UnDotum.ttf|*/COPYING.fireflysung|*/COPYING.sazanami|*/COPYING.UnDotum) ;;
     *) cp "$f" "$stage/data/themes/gui-sdl2/human/" ;;
   esac
 done

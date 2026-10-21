@@ -489,10 +489,10 @@ index 6ef99c4..52fee72 100644
    win_subsystem: 'windows'
 diff --git a/platforms/emscripten/server-worker.js b/platforms/emscripten/server-worker.js
 new file mode 100644
-index 0000000..bb4e641
+index 0000000..ab5fce1
 --- /dev/null
 +++ b/platforms/emscripten/server-worker.js
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,90 @@
 +/*
 + * server-worker.js: runs freeciv-server.js (beside this file) in a Web Worker
 + *
@@ -567,10 +567,12 @@ index 0000000..bb4e641
 +      const FS = Module.FS;
 +
 +      FS.mkdirTree("/wg");
++      /* The buffers came in the message, so the file system keeps them. */
 +      for (const [path, bytes] of Object.entries(files)) {
 +        FS.mkdirTree(path.slice(0, path.lastIndexOf("/")) || "/");
-+        FS.writeFile(path, bytes);
++        FS.writeFile(path, bytes, { canOwn: true });
 +      }
++      files = null;
 +      Module.callMain(args);
 +    },
 +    onExit(code) {
